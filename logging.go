@@ -125,3 +125,14 @@ func Middleware() gin.HandlerFunc {
 		}
 	}
 }
+
+// MustGet returns the custom log object from a gin handler's context.
+// If the object is not set, it panics, because that likely means the middleware is missing
+// (use this function if you know for sure that the middleware must be there)
+func MustGet(c *gin.Context) *RequestLog {
+	v, exists := c.Get("jrl")
+	if !exists {
+		panic("jlogging: RequestLog not found in context. Did you forget to use jlogging.Middleware?")
+	}
+	return v.(*RequestLog)
+}
