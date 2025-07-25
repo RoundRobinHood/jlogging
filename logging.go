@@ -11,7 +11,7 @@ import (
 
 // RequestLog carries information about a request and its resolution.
 // This package directly marshals this struct.
-// RequestLog fields are safe to read and edit in normal execution flow of gin handlers (this fact is useful for the Details map)
+// RequestLog fields are safe to read and edit in normal handler execution flow (this fact is useful for the Details map)
 type RequestLog struct {
 	URI            string        `json:"uri"`
 	Method         string        `json:"method"`
@@ -69,6 +69,10 @@ func MarshalWithFallback(l *RequestLog) ([]byte, error) {
 	return bytes, nil
 }
 
+// When set to testing environment, non-panic and non-500 results are set here instead of being printed to stdout.
+// This makes failed test output more clean by allowing the tester to manually print the last log if something obscure happened.
+var TestLogStr = ""
+
 // Middleware returns a gin compatible middleware.
 // The middleware logs a JSON object per request via fmt.Printf, and also recovers panics
 // The RequestLog object can be accessed and edited in handlers via c.Get("jrl")
@@ -117,11 +121,20 @@ func Middleware() gin.HandlerFunc {
 		l.Duration = time.Since(start).Milliseconds()
 		l.ResponseStatus = c.Writer.Status()
 
+		logStr := ""
 		bytes, err := MarshalWithFallback(l)
 		if err != nil {
-			fmt.Printf("{\"jlog\":\"Could not marshal request log: %s\"}\n", err)
+			logStr = fmt.Sprintf("{\"jlog\":\"Could not marshal request log: %s\"}\n", err)
 		} else {
-			fmt.Printf("%s\n", string(bytes))
+			logStr = fmt.Sprintf("%s\n", string(bytes))
+		}
+
+		if l.ResponseStatus == 500 {
+			fmt.Print(logStr)
+		} else if gin.Mode() == gin.TestMode {
+			TestLogStr = logStr
+		} else {
+			fmt.Print(logStr)
 		}
 	}
 }
